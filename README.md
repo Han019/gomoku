@@ -4,5 +4,5 @@
 
 실행 방법
 
-[사이트 진입](gomoku-han.netlify.app)
+[사이트 진입](https://gomoku-han.netlify.app)
 
