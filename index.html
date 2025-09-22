@@ -7,53 +7,67 @@
     <link rel="stylesheet" href="./omok.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>오목 게임</h1>
-            <div class="game-info">
-                <div class="player-info">
-                    <div class="player black-player">
-                        <span class="stone black-stone"></span>
-                        <span class="player-name">흑돌</span>
-                        <span class="player-score" id="black-score">0</span>
-                    </div>
-                    <div class="vs">VS</div>
-                    <div class="player white-player">
-                        <span class="stone white-stone"></span>
-                        <span class="player-name">백돌</span>
-                        <span class="player-score" id="white-score">0</span>
-                    </div>
-                </div>
-                <div class="current-player">
-                    현재 차례: <span id="current-player">흑돌</span>
-                </div>
+    <div id="gameModeModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>오목 게임</h2>
+            <p>플레이할 모드를 선택하세요.</p>
+            <div class="modal-buttons">
+                <button id="vsPlayerBtn" class="btn">사람과 1대1 플레이</button>
+                <button id="vsAiBtn" class="btn">AI와 싱글 플레이</button>
             </div>
-        </header>
-        
-        <main>
-            <div class="game-board-container">
-                <canvas id="gameBoard" width="600" height="600"></canvas>
-                <div class="game-controls">
-                    <button id="resetBtn" class="btn">게임 리셋</button>
-                    <button id="undoBtn" class="btn">한 수 되돌리기</button>
+        </div>
+    </div>
+
+    <div id="gameContainer" style="display: none;">
+        <button id="backToMenuBtn" class="btn-icon">&lt;</button>
+        <div class="container">
+            <header>
+                <h1>오목 게임</h1>
+                <div class="game-info">
+                    <div class="player-info">
+                        <div class="player black-player">
+                            <span class="stone black-stone"></span>
+                            <span class="player-name">흑돌</span>
+                            <span class="player-score" id="black-score">0</span>
+                        </div>
+                        <div class="vs">VS</div>
+                        <div class="player white-player">
+                            <span class="stone white-stone"></span>
+                            <span class="player-name">백돌</span>
+                            <span class="player-score" id="white-score">0</span>
+                        </div>
+                    </div>
+                    <div class="current-player">
+                        현재 차례: <span id="current-player">흑돌</span>
+                    </div>
                 </div>
-            </div>
+            </header>
             
-            <div class="game-status">
-                <div id="gameMessage" class="message">게임을 시작하세요!</div>
-            </div>
-        </main>
-        
-        <footer>
-            <div class="game-rules">
-                <h3>게임 규칙</h3>
-                <ul>
-                    <li>흑돌이 먼저 시작합니다</li>
-                    <li>가로, 세로, 대각선으로 5개가 연속되면 승리합니다</li>
-                    <li>한 번 둔 돌은 되돌릴 수 없습니다</li>
-                </ul>
-            </div>
-        </footer>
+            <main>
+                <div class="game-board-container">
+                    <canvas id="gameBoard" width="600" height="600"></canvas>
+                    <div class="game-controls">
+                        <button id="resetBtn" class="btn">게임 리셋</button>
+                        <button id="undoBtn" class="btn">한 수 되돌리기</button>
+                    </div>
+                </div>
+                
+                <div class="game-status">
+                    <div id="gameMessage" class="message">게임을 시작하세요!</div>
+                </div>
+            </main>
+            
+            <footer>
+                <div class="game-rules">
+                    <h3>게임 규칙</h3>
+                    <ul>
+                        <li>흑돌이 먼저 시작합니다</li>
+                        <li>가로, 세로, 대각선으로 5개가 연속되면 승리합니다</li>
+                        <li>한 번 둔 돌은 되돌릴 수 없습니다</li>
+                    </ul>
+                </div>
+            </footer>
+        </div>
     </div>
     
     <script src="./omok.js"></script>

@@ -1,56 +1,90 @@
 class OmokGame {
     constructor() {
+        // DOM 요소 가져오기
         this.canvas = document.getElementById('gameBoard');
         this.ctx = this.canvas.getContext('2d');
+        this.modal = document.getElementById('gameModeModal');
+        this.gameContainer = document.getElementById('gameContainer');
+        this.backToMenuBtn = document.getElementById('backToMenuBtn');
+        
+        // 게임 설정
         this.boardSize = 19; // 19x19 오목판
         this.cellSize = this.canvas.width / this.boardSize;
+        
+        // 게임 상태 변수
         this.board = [];
         this.currentPlayer = 1; // 1: 흑돌, 2: 백돌
+        this.gameMode = null; // '1v1' 또는 'ai'
         this.gameOver = false;
+        this.isAiThinking = false;
         this.moveHistory = [];
+        
+        // 점수
         this.blackScore = 0;
         this.whiteScore = 0;
         
-        this.initializeBoard();
-        this.drawBoard();
         this.setupEventListeners();
-        this.updateUI();
+    }
+    
+    setupEventListeners() {
+        // 모드 선택 버튼
+        document.getElementById('vsPlayerBtn').addEventListener('click', () => this.startGame('1v1'));
+        document.getElementById('vsAiBtn').addEventListener('click', () => this.startGame('ai'));
+
+        // 게임 보드 이벤트
+        this.canvas.addEventListener('click', (e) => this.handleClick(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        
+        // 게임 컨트롤 버튼
+        this.backToMenuBtn.addEventListener('click', () => this.goBackToMenu());
+        document.getElementById('resetBtn').addEventListener('click', () => this.resetGame());
+        document.getElementById('undoBtn').addEventListener('click', () => this.undoMove());
+    }
+
+    startGame(mode) {
+        this.gameMode = mode;
+        this.modal.style.display = 'none';
+        this.gameContainer.style.display = 'block';
+        this.resetGame();
+    }
+
+    goBackToMenu() {
+        this.gameContainer.style.display = 'none';
+        this.modal.style.display = 'flex';
+        this.gameMode = null;
+
+        // 점수 및 플레이어 이름 초기화
+        this.blackScore = 0;
+        this.whiteScore = 0;
+        document.getElementById('black-score').textContent = '0';
+        document.getElementById('white-score').textContent = '0';
+        document.querySelector('.white-player .player-name').textContent = '백돌';
     }
     
     initializeBoard() {
-        this.board = [];
-        for (let i = 0; i < this.boardSize; i++) {
-            this.board[i] = [];
-            for (let j = 0; j < this.boardSize; j++) {
-                this.board[i][j] = 0; // 0: 빈 칸, 1: 흑돌, 2: 백돌
-            }
-        }
+        this.board = Array(this.boardSize).fill(null).map(() => Array(this.boardSize).fill(0));
     }
     
     drawBoard() {
-        // 배경 그리기
         this.ctx.fillStyle = '#DEB887';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // 격자 그리기
         this.ctx.strokeStyle = '#8B4513';
         this.ctx.lineWidth = 1;
         
         for (let i = 0; i < this.boardSize; i++) {
-            // 세로선
+            const pos = i * this.cellSize + this.cellSize / 2;
             this.ctx.beginPath();
-            this.ctx.moveTo(i * this.cellSize + this.cellSize / 2, this.cellSize / 2);
-            this.ctx.lineTo(i * this.cellSize + this.cellSize / 2, this.canvas.height - this.cellSize / 2);
+            this.ctx.moveTo(pos, this.cellSize / 2);
+            this.ctx.lineTo(pos, this.canvas.height - this.cellSize / 2);
             this.ctx.stroke();
             
-            // 가로선
             this.ctx.beginPath();
-            this.ctx.moveTo(this.cellSize / 2, i * this.cellSize + this.cellSize / 2);
-            this.ctx.lineTo(this.canvas.width - this.cellSize / 2, i * this.cellSize + this.cellSize / 2);
+            this.ctx.moveTo(this.cellSize / 2, pos);
+            this.ctx.lineTo(this.canvas.width - this.cellSize / 2, pos);
             this.ctx.stroke();
         }
         
-        // 돌 그리기
         for (let i = 0; i < this.boardSize; i++) {
             for (let j = 0; j < this.boardSize; j++) {
                 if (this.board[i][j] !== 0) {
@@ -68,31 +102,29 @@ class OmokGame {
         this.ctx.beginPath();
         this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
         
+        const gradient = player === 1 
+            ? this.ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.1, x, y, radius)
+            : this.ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.1, x, y, radius);
+
         if (player === 1) { // 흑돌
-            this.ctx.fillStyle = '#2c3e50';
-            this.ctx.fill();
-            this.ctx.strokeStyle = '#000';
+            gradient.addColorStop(0, '#666');
+            gradient.addColorStop(1, '#000');
+            this.ctx.fillStyle = gradient;
         } else { // 백돌
-            this.ctx.fillStyle = '#ecf0f1';
-            this.ctx.fill();
-            this.ctx.strokeStyle = '#2c3e50';
+            gradient.addColorStop(0, '#fff');
+            gradient.addColorStop(1, '#ccc');
+            this.ctx.fillStyle = gradient;
         }
         
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
-    }
-    
-    setupEventListeners() {
-        this.canvas.addEventListener('click', (e) => this.handleClick(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        
-        document.getElementById('resetBtn').addEventListener('click', () => this.resetGame());
-        document.getElementById('undoBtn').addEventListener('click', () => this.undoMove());
+        this.ctx.fill();
     }
     
     handleClick(e) {
-        if (this.gameOver) {
-            console.log('게임이 끝났습니다.');
+        if (this.gameOver || !this.gameMode || this.isAiThinking) {
+            return;
+        }
+
+        if (this.gameMode === 'ai' && this.currentPlayer === 2) {
             return;
         }
         
@@ -100,25 +132,11 @@ class OmokGame {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        // 클릭 좌표를 보드 좌표로 변환
         const col = Math.round((x - this.cellSize / 2) / this.cellSize);
         const row = Math.round((y - this.cellSize / 2) / this.cellSize);
         
-        console.log(`클릭 좌표: (${x}, ${y}), 보드 좌표: (${row}, ${col}), 셀 크기: ${this.cellSize}`);
-        console.log(`현재 플레이어: ${this.currentPlayer}, 게임 상태: ${this.gameOver}`);
-        
         if (this.isValidMove(row, col)) {
-            console.log(`유효한 수입니다. 돌을 놓습니다.`);
             this.makeMove(row, col);
-        } else {
-            console.log(`유효하지 않은 수: (${row}, ${col})`);
-            if (row < 0 || row >= this.boardSize || col < 0 || col >= this.boardSize) {
-                console.log('보드 범위를 벗어났습니다.');
-            } else if (this.board[row][col] !== 0) {
-                console.log('이미 돌이 놓여있는 위치입니다.');
-            }
-            // 시각적 피드백
-            this.showClickFeedback(x, y);
         }
     }
     
@@ -129,56 +147,69 @@ class OmokGame {
     }
     
     makeMove(row, col) {
-        console.log(`돌을 놓습니다: (${row}, ${col}), 플레이어: ${this.currentPlayer}`);
         this.board[row][col] = this.currentPlayer;
         this.moveHistory.push({row, col, player: this.currentPlayer});
         
-        console.log(`보드 상태 업데이트됨. 현재 보드[${row}][${col}] = ${this.board[row][col]}`);
-        
         this.drawBoard();
+        this.drawStone(row, col, this.currentPlayer);
         
         if (this.checkWin(row, col)) {
             this.gameOver = true;
             this.updateScore();
-            this.showMessage(`${this.currentPlayer === 1 ? '흑돌' : '백돌'} 승리!`);
+            const winnerName = this.currentPlayer === 1 ? '흑돌' : (this.gameMode === 'ai' ? '컴퓨터' : '백돌');
+            this.showMessage(`${winnerName} 승리!`);
         } else if (this.isBoardFull()) {
             this.gameOver = true;
             this.showMessage('무승부!');
         } else {
             this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
             this.updateUI();
+
+            if (!this.gameOver && this.gameMode === 'ai' && this.currentPlayer === 2) {
+                this.isAiThinking = true;
+                this.showMessage('컴퓨터가 생각 중...');
+                setTimeout(() => this.makeAiMove(), 1000);
+            }
         }
+    }
+
+    makeAiMove() {
+        const emptyCells = [];
+        for (let i = 0; i < this.boardSize; i++) {
+            for (let j = 0; j < this.boardSize; j++) {
+                if (this.board[i][j] === 0) {
+                    emptyCells.push({row: i, col: j});
+                }
+            }
+        }
+
+        if (emptyCells.length === 0) return;
+
+        const randomIndex = Math.floor(Math.random() * emptyCells.length);
+        const { row, col } = emptyCells[randomIndex];
+        
+        this.makeMove(row, col);
+        this.isAiThinking = false;
     }
     
     checkWin(row, col) {
-        const directions = [
-            [0, 1],   // 가로
-            [1, 0],   // 세로
-            [1, 1],   // 대각선 \
-            [1, -1]   // 대각선 /
-        ];
+        const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
         
         for (let [dx, dy] of directions) {
             let count = 1;
-            
-            // 양방향으로 체크
-            for (let direction of [1, -1]) {
-                let newRow = row + dx * direction;
-                let newCol = col + dy * direction;
-                
-                while (this.isValidPosition(newRow, newCol) && 
-                       this.board[newRow][newCol] === this.currentPlayer) {
-                    count++;
-                    newRow += dx * direction;
-                    newCol += dy * direction;
+            for (let dir = -1; dir <= 1; dir += 2) {
+                for (let i = 1; i < 5; i++) {
+                    const newRow = row + dx * i * dir;
+                    const newCol = col + dy * i * dir;
+                    if (this.isValidPosition(newRow, newCol) && this.board[newRow][newCol] === this.currentPlayer) {
+                        count++;
+                    } else {
+                        break;
+                    }
                 }
             }
-            
-            if (count >= 5) {
-                return true;
-            }
+            if (count >= 5) return true;
         }
-        
         return false;
     }
     
@@ -187,31 +218,22 @@ class OmokGame {
     }
     
     isBoardFull() {
-        for (let i = 0; i < this.boardSize; i++) {
-            for (let j = 0; j < this.boardSize; j++) {
-                if (this.board[i][j] === 0) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return this.moveHistory.length === this.boardSize * this.boardSize;
     }
     
     updateScore() {
-        if (this.currentPlayer === 1) {
-            this.blackScore++;
-        } else {
-            this.whiteScore++;
-        }
+        if (this.currentPlayer === 1) this.blackScore++;
+        else this.whiteScore++;
         document.getElementById('black-score').textContent = this.blackScore;
         document.getElementById('white-score').textContent = this.whiteScore;
     }
     
     updateUI() {
-        const currentPlayerText = this.currentPlayer === 1 ? '흑돌' : '백돌';
+        const player2Name = this.gameMode === 'ai' ? '컴퓨터' : '백돌';
+        document.querySelector('.white-player .player-name').textContent = player2Name;
+        const currentPlayerText = this.currentPlayer === 1 ? '흑돌' : player2Name;
         document.getElementById('current-player').textContent = currentPlayerText;
         
-        // 현재 플레이어 하이라이트
         const blackPlayer = document.querySelector('.black-player');
         const whitePlayer = document.querySelector('.white-player');
         
@@ -220,55 +242,34 @@ class OmokGame {
     }
     
     showMessage(message) {
-        const messageElement = document.getElementById('gameMessage');
-        messageElement.textContent = message;
-        
-        if (message.includes('승리')) {
-            messageElement.className = 'message win';
-        } else if (message.includes('무승부')) {
-            messageElement.className = 'message draw';
-        } else {
-            messageElement.className = 'message';
-        }
+        const msgEl = document.getElementById('gameMessage');
+        msgEl.textContent = message;
+        msgEl.className = 'message';
+        if (message.includes('승리')) msgEl.classList.add('win');
+        if (message.includes('무승부')) msgEl.classList.add('draw');
     }
     
     handleMouseMove(e) {
-        if (this.gameOver) return;
+        if (this.gameOver || !this.gameMode || this.isAiThinking) {
+            this.canvas.style.cursor = 'default';
+            return;
+        }
         
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        // 클릭 가능한 위치인지 확인
         const col = Math.round((x - this.cellSize / 2) / this.cellSize);
         const row = Math.round((y - this.cellSize / 2) / this.cellSize);
         
-        if (this.isValidMove(row, col)) {
-            this.canvas.style.cursor = 'pointer';
-        } else {
-            this.canvas.style.cursor = 'default';
-        }
-    }
-    
-    showClickFeedback(x, y) {
-        // 클릭 위치에 빨간 원 그리기 (잠시 동안)
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, 10, 0, 2 * Math.PI);
-        this.ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-        this.ctx.fill();
-        this.ctx.restore();
-        
-        // 0.5초 후 다시 보드 그리기
-        setTimeout(() => {
-            this.drawBoard();
-        }, 500);
+        this.canvas.style.cursor = this.isValidMove(row, col) ? 'pointer' : 'default';
     }
     
     resetGame() {
         this.initializeBoard();
         this.currentPlayer = 1;
         this.gameOver = false;
+        this.isAiThinking = false;
         this.moveHistory = [];
         this.drawBoard();
         this.updateUI();
@@ -276,10 +277,16 @@ class OmokGame {
     }
     
     undoMove() {
+        if (this.gameMode === 'ai') {
+            this.showMessage('AI 대전에서는 되돌리기를 사용할 수 없습니다.');
+            setTimeout(() => this.updateUI(), 2000);
+            return;
+        }
         if (this.moveHistory.length === 0 || this.gameOver) return;
-        
+
         const lastMove = this.moveHistory.pop();
         this.board[lastMove.row][lastMove.col] = 0;
+        
         this.currentPlayer = lastMove.player;
         this.gameOver = false;
         
@@ -289,16 +296,7 @@ class OmokGame {
     }
 }
 
-// 게임 시작
+// DOM이 로드되면 OmokGame 인스턴스 생성
 document.addEventListener('DOMContentLoaded', () => {
     new OmokGame();
-});
-
-// 키보드 단축키
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'r' || e.key === 'R') {
-        document.getElementById('resetBtn').click();
-    } else if (e.key === 'u' || e.key === 'U') {
-        document.getElementById('undoBtn').click();
-    }
 });
