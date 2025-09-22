@@ -4,4 +4,4 @@
 
 실행 방법
 
-[사이트 진입](https://Han019.github.io/gomoku)
+[사이트 진입](quiet-meringue-20f354.netlify.app)
